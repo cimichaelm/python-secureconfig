@@ -1,8 +1,12 @@
 from __future__ import print_function
 
-import unittest, ctypes, sys, gc
+import ctypes
+import gc
+import sys
+import unittest
 
-from secureconfig import SecureString, zeromem
+from secureconfig import SecureString
+
 
 def get_from_mem(ctypes_tuple):
     location = ctypes_tuple[0]
@@ -18,9 +22,10 @@ class TestSecureString(unittest.TestCase):
 
     def test_SecureString_has_str_methods(self):
         secret = SecureString('test')
-        str_methods = set(dir(str))        
-        ss_methods = set(dir(SecureString))
-        assert(str_methods.issubset(str_methods))
+        str_methods = set(dir(str))
+        ss_methods = set(dir(secret))
+        self.assertEqual([s for s in str_methods if s not in ss_methods], [])
+
 
     def test_str_methods_still_work(self):
         # not going to test every single one. a smattering will do.
@@ -28,7 +33,7 @@ class TestSecureString(unittest.TestCase):
         self.assertFalse(secret.isupper())
         self.assertTrue(secret.islower())
         self.assertTrue(secret.startswith('more'))
-        assert(secret.find('than') == 5)
+        self.assertEqual(secret.find('than'), 5)
 
     def test_burn_method_zeroes__string(self):
         ss = SecureString("of all the things I've lost, I miss my mind the most")
@@ -36,11 +41,8 @@ class TestSecureString(unittest.TestCase):
         ss.burn()
         gc.collect()
         result = get_from_mem(ctuple)
-        assert result.find('things') == -1
-        assert result.find('lost') == -1
-
-        #TODO: figure out why this returns 32 even when above tests pass!         
-        #assert result.find("of all the things I've lost, I miss my mind the most") == -1
+        self.assertNotIn(b'things', result)
+        self.assertNotIn(b'lost', result)
 
     def test_SecureString_zeroes_on_del(self):
         ss = SecureString("it's a secret23 to everybody")
@@ -48,16 +50,13 @@ class TestSecureString(unittest.TestCase):
         del(ss)
         gc.collect()
         result = get_from_mem(ctuple)
-        try:
-            print(ss)
-            assert False
-        except UnboundLocalError:
-            assert True
+        with self.assertRaises(UnboundLocalError):
+            print(ss)  # noqa
 
-        assert result.find('23') == -1
-        assert result.find('everybody') == -1
-        assert result.find('it\'s') == -1
-        
+        self.assertNotIn(b'23', result)
+        self.assertNotIn(b'everybody', result)
+        self.assertNotIn(b"it's", result)
+
 
 if __name__ == '__main__':
     unittest.main()
